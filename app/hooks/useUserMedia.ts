@@ -1,10 +1,13 @@
 import { getCamera, getMic, getScreenshare } from 'partytracks/client'
 import { useObservable, useObservableAsValue } from 'partytracks/react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocalStorage } from 'react-use'
+import {
+	getNoiseSuppressionTransform,
+	type AudioEffectsSdkConfig,
+} from '~/utils/audioEffectsSdk'
 import blurVideoTrack from '~/utils/blurVideoTrack'
 import { mode } from '~/utils/mode'
-import noiseSuppression from '~/utils/noiseSuppression'
 
 export const errorMessageMap = {
 	NotAllowedError:
@@ -26,17 +29,21 @@ export const camera = getCamera({
 })
 export const screenshare = getScreenshare({ audio: false })
 
-function useNoiseSuppression() {
+function useNoiseSuppression(audioEffectsConfig?: AudioEffectsSdkConfig) {
 	const [suppressNoise, setSuppressNoise] = useLocalStorage(
 		'suppress-noise',
 		false
+	)
+	const noiseSuppression = useMemo(
+		() => getNoiseSuppressionTransform(audioEffectsConfig),
+		[audioEffectsConfig]
 	)
 	useEffect(() => {
 		if (suppressNoise) mic.addTransform(noiseSuppression)
 		return () => {
 			mic.removeTransform(noiseSuppression)
 		}
-	}, [suppressNoise])
+	}, [noiseSuppression, suppressNoise])
 
 	return [suppressNoise, setSuppressNoise] as const
 }
@@ -79,6 +86,7 @@ function useScreenshare() {
 export default function useUserMedia(options: {
 	micDeviceId?: string
 	cameraDeviceId?: string
+	audioEffectsConfig?: AudioEffectsSdkConfig
 }) {
 	useEffect(() => {
 		if (!options.micDeviceId) return
@@ -99,7 +107,9 @@ export default function useUserMedia(options: {
 			})
 	}, [options.cameraDeviceId])
 
-	const [suppressNoise, setSuppressNoise] = useNoiseSuppression()
+	const [suppressNoise, setSuppressNoise] = useNoiseSuppression(
+		options.audioEffectsConfig
+	)
 	const [blurVideo, setBlurVideo] = useBlurVideo()
 
 	const [videoUnavailableReason, setVideoUnavailableReason] =

@@ -16,6 +16,7 @@ import { type RoomContextType } from '~/hooks/useRoomContext'
 import { useRoomHistory } from '~/hooks/useRoomHistory'
 import { useStablePojo } from '~/hooks/useStablePojo'
 import useUserMedia from '~/hooks/useUserMedia'
+import { normalizeAudioEffectsSdkConfig } from '~/utils/audioEffectsSdk'
 import type { TrackObject } from '~/utils/callsTypes'
 import { useE2EE } from '~/utils/e2ee'
 import { getIceServers } from '~/utils/getIceServers.server'
@@ -41,6 +42,12 @@ export const loader = async ({ context }: LoaderFunctionArgs) => {
 			MAX_WEBCAM_QUALITY_LEVEL,
 			MAX_API_HISTORY,
 			EXPERIMENTAL_SIMULCAST_ENABLED,
+			AUDIO_EFFECTS_SDK_CUSTOMER_ID,
+			AUDIO_EFFECTS_SDK_PRESET,
+			AUDIO_EFFECTS_SDK_SAMPLE_RATE,
+			AUDIO_EFFECTS_SDK_URL,
+			AUDIO_EFFECTS_SDK_ORT_WASM_URL,
+			AUDIO_EFFECTS_SDK_ORT_WASM_SIMD_URL,
 		},
 	} = context
 
@@ -58,6 +65,14 @@ export const loader = async ({ context }: LoaderFunctionArgs) => {
 		maxWebcamBitrate: numberOrUndefined(MAX_WEBCAM_BITRATE),
 		maxWebcamQualityLevel: numberOrUndefined(MAX_WEBCAM_QUALITY_LEVEL),
 		maxApiHistory: numberOrUndefined(MAX_API_HISTORY),
+		audioEffectsConfig: normalizeAudioEffectsSdkConfig({
+			customerId: AUDIO_EFFECTS_SDK_CUSTOMER_ID,
+			preset: AUDIO_EFFECTS_SDK_PRESET,
+			sampleRate: AUDIO_EFFECTS_SDK_SAMPLE_RATE,
+			sdkUrl: AUDIO_EFFECTS_SDK_URL,
+			ortWasmPath: AUDIO_EFFECTS_SDK_ORT_WASM_URL,
+			ortWasmSimdPath: AUDIO_EFFECTS_SDK_ORT_WASM_SIMD_URL,
+		}),
 		simulcastEnabled: EXPERIMENTAL_SIMULCAST_ENABLED === 'true',
 		e2eeEnabled: context.env.E2EE_ENABLED === 'true',
 	})
@@ -97,8 +112,9 @@ function RoomPreparation(props: {
 	cameraDeviceId?: string
 }) {
 	const { roomName } = useParams()
+	const { audioEffectsConfig } = useLoaderData<typeof loader>()
 	invariant(roomName)
-	const userMedia = useUserMedia(props)
+	const userMedia = useUserMedia({ ...props, audioEffectsConfig })
 	const room = useRoom({ roomName, userMedia })
 
 	return room.roomState.meetingId ? (

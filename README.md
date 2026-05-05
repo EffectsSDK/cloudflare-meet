@@ -35,6 +35,60 @@ The following variables are optional:
 
 To customize these variables, place replacement values in `.dev.vars` (for development) and in the `[vars]` section of `wrangler.toml` (for the deployment).
 
+## Audio Effects SDK
+
+Cloudflare Meet includes an optional integration with the [Audio Effects SDK](https://github.com/EffectsSDK/audio-effects-sdk-web). When configured, the existing `Suppress Noise` toggle in Settings uses Audio Effects SDK noise suppression for the microphone.
+
+### Customer ID
+
+Audio Effects SDK requires a Customer ID. Request one here:
+
+- https://effectssdk.ai/cp/registration#audio
+
+After you receive it, set it in your environment configuration:
+
+```sh
+AUDIO_EFFECTS_SDK_CUSTOMER_ID=<YOUR_CUSTOMER_ID>
+```
+
+Use `.dev.vars` for local development and the `[vars]` section of `wrangler.toml` for deployment.
+
+### Defaults
+
+Cloudflare Meet uses these Audio Effects SDK defaults:
+
+- `preset: 'balanced'`
+- `sample_rate: 32000`
+
+### Optional overrides
+
+If needed, you can also override these variables:
+
+- `AUDIO_EFFECTS_SDK_PRESET`
+- `AUDIO_EFFECTS_SDK_SAMPLE_RATE`
+- `AUDIO_EFFECTS_SDK_URL`
+- `AUDIO_EFFECTS_SDK_ORT_WASM_URL`
+- `AUDIO_EFFECTS_SDK_ORT_WASM_SIMD_URL`
+
+If these are not set, the integration uses the built-in defaults from Cloudflare Meet and the SDK package.
+
+### Runtime behavior
+
+The `Suppress Noise` toggle maps to the Audio Effects SDK lifecycle like this:
+
+- enable noise suppression: pass the current mic stream into `sdk.useStream(...)`, wait for `onReady`, then call `sdk.run()`
+- disable noise suppression: call `sdk.stop()`
+- enable again without changing the stream: call `sdk.run()` again
+
+### Verification
+
+Open the browser console and look for `[AudioEffectsSDK]` logs. The integration logs:
+
+- the payload sent to `sdk.config(...)`
+- every `sdk.useStream(...)`
+- `sdk.run()` and `sdk.stop()`
+- all `sdk.onError(...)` callbacks
+
 ## Development
 
 ```sh
