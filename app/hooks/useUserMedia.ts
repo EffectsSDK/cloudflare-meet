@@ -6,8 +6,17 @@ import {
 	getNoiseSuppressionTransform,
 	type AudioEffectsSdkConfig,
 } from '~/utils/audioEffectsSdk'
-import blurVideoTrack from '~/utils/blurVideoTrack'
 import { mode } from '~/utils/mode'
+import {
+	createVideoEffectsTrackTransform,
+	defaultVideoEffectsState,
+	hasActiveVideoEffects,
+	normalizeVideoEffectsState,
+	syncSingletonVideoEffectsState,
+	type VideoEffectsSdkConfig,
+	type VideoEffectsState,
+} from '~/utils/videoEffectsSdk'
+import { useVideoBackgroundAssets } from './useVideoBackgroundAssets'
 
 export const errorMessageMap = {
 	NotAllowedError:
@@ -48,16 +57,60 @@ function useNoiseSuppression(audioEffectsConfig?: AudioEffectsSdkConfig) {
 	return [suppressNoise, setSuppressNoise] as const
 }
 
-function useBlurVideo() {
-	const [blurVideo, setBlurVideo] = useLocalStorage('blur-video', false)
-	useEffect(() => {
-		if (blurVideo) camera.addTransform(blurVideoTrack)
-		return () => {
-			camera.removeTransform(blurVideoTrack)
-		}
-	}, [blurVideo])
+function useVideoEffects(videoEffectsConfig: VideoEffectsSdkConfig) {
+	const [storedState, setStoredState] = useLocalStorage<VideoEffectsState>(
+		'video-effects',
+		defaultVideoEffectsState
+	)
+	const videoEffects = useMemo(
+		() => normalizeVideoEffectsState(storedState),
+		[storedState]
+	)
+	const videoEffectsTransform = useMemo(
+		() => createVideoEffectsTrackTransform(videoEffectsConfig),
+		[videoEffectsConfig]
+	)
+	const backgroundAssets = useVideoBackgroundAssets()
+	const videoEffectsEnabled = hasActiveVideoEffects(videoEffects)
 
-	return [blurVideo, setBlurVideo] as const
+	useEffect(() => {
+		if (videoEffectsEnabled) camera.addTransform(videoEffectsTransform)
+		return () => {
+			camera.removeTransform(videoEffectsTransform)
+		}
+	}, [videoEffectsEnabled, videoEffectsTransform])
+
+	useEffect(() => {
+		void syncSingletonVideoEffectsState({
+			config: videoEffectsConfig,
+			state: videoEffects,
+			backgroundAssets: backgroundAssets.assets,
+		})
+	}, [backgroundAssets.assets, videoEffects, videoEffectsConfig])
+
+	const setVideoEffects = useCallback(
+		(
+			nextState:
+				| VideoEffectsState
+				| ((prev: VideoEffectsState) => VideoEffectsState)
+		) =>
+			setStoredState((currentValue) => {
+				const previousState = normalizeVideoEffectsState(currentValue)
+				const resolvedState =
+					typeof nextState === 'function' ? nextState(previousState) : nextState
+				return normalizeVideoEffectsState(resolvedState)
+			}),
+		[setStoredState]
+	)
+
+	return {
+		videoEffects,
+		setVideoEffects,
+		videoEffectsEnabled,
+		videoBackgroundAssets: backgroundAssets.assets,
+		addVideoBackgroundAsset: backgroundAssets.addAsset,
+		deleteVideoBackgroundAsset: backgroundAssets.deleteAsset,
+	}
 }
 
 function useScreenshare() {
@@ -87,6 +140,7 @@ export default function useUserMedia(options: {
 	micDeviceId?: string
 	cameraDeviceId?: string
 	audioEffectsConfig?: AudioEffectsSdkConfig
+	videoEffectsConfig: VideoEffectsSdkConfig
 }) {
 	useEffect(() => {
 		if (!options.micDeviceId) return
@@ -110,7 +164,14 @@ export default function useUserMedia(options: {
 	const [suppressNoise, setSuppressNoise] = useNoiseSuppression(
 		options.audioEffectsConfig
 	)
-	const [blurVideo, setBlurVideo] = useBlurVideo()
+	const {
+		videoEffects,
+		setVideoEffects,
+		videoEffectsEnabled,
+		videoBackgroundAssets,
+		addVideoBackgroundAsset,
+		deleteVideoBackgroundAsset,
+	} = useVideoEffects(options.videoEffectsConfig)
 
 	const [videoUnavailableReason, setVideoUnavailableReason] =
 		useState<UserMediaError>()
@@ -172,8 +233,12 @@ export default function useUserMedia(options: {
 		turnCameraOff: camera.stopBroadcasting,
 		videoEnabled: useObservableAsValue(camera.isBroadcasting$, true),
 		videoUnavailableReason,
-		blurVideo,
-		setBlurVideo,
+		videoEffects,
+		setVideoEffects,
+		videoEffectsEnabled,
+		videoBackgroundAssets,
+		addVideoBackgroundAsset,
+		deleteVideoBackgroundAsset,
 		suppressNoise,
 		setSuppressNoise,
 		videoTrack$: camera.broadcastTrack$,

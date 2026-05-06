@@ -39,6 +39,8 @@ To customize these variables, place replacement values in `.dev.vars` (for devel
 
 Cloudflare Meet includes an optional integration with the [Audio Effects SDK](https://github.com/EffectsSDK/audio-effects-sdk-web). When configured, the existing `Suppress Noise` toggle in Settings uses Audio Effects SDK noise suppression for the microphone.
 
+This is an integration sample that demonstrates only part of the Audio Effects SDK feature set. You can extend it to use additional SDK features. See https://effectssdk.ai for more details.
+
 ### Customer ID
 
 Audio Effects SDK requires a Customer ID. Request one here:
@@ -83,6 +85,76 @@ The `Suppress Noise` toggle maps to the Audio Effects SDK lifecycle like this:
 ### Verification
 
 Open the browser console and look for `[AudioEffectsSDK]` logs. The integration logs:
+
+- the payload sent to `sdk.config(...)`
+- every `sdk.useStream(...)`
+- `sdk.run()` and `sdk.stop()`
+- all `sdk.onError(...)` callbacks
+
+## Video Effects SDK
+
+Cloudflare Meet includes an optional integration with the [Video Effects SDK](https://github.com/EffectsSDK/video-effects-sdk-web). When configured, Settings can use it for background blur, virtual backgrounds, beautification, and low-light correction.
+
+This is an integration sample that demonstrates only part of the Video Effects SDK feature set. You can extend it to use additional SDK features. See https://effectssdk.ai for more details.
+
+### Customer ID
+
+Video Effects SDK requires its own Customer ID. It is separate from the Audio Effects SDK Customer ID. Request one here:
+
+- https://effectssdk.ai/cp/registration
+
+After you receive it, set it in your environment configuration:
+
+```sh
+VIDEO_EFFECTS_SDK_CUSTOMER_ID=<YOUR_VIDEO_CUSTOMER_ID>
+```
+
+Use `.dev.vars` for local development and the `[vars]` section of `wrangler.toml` for deployment.
+
+### Defaults
+
+Cloudflare Meet uses these Video Effects SDK defaults:
+
+- `preset: 'balanced'`
+- `provider: 'auto'`
+
+### Optional overrides
+
+If needed, you can also override these variables:
+
+- `VIDEO_EFFECTS_SDK_PRESET`
+- `VIDEO_EFFECTS_SDK_PROVIDER`
+- `VIDEO_EFFECTS_SDK_URL`
+- `VIDEO_EFFECTS_SDK_ORT_WASM_URL`
+- `VIDEO_EFFECTS_SDK_ORT_WASM_SIMD_URL`
+- `VIDEO_EFFECTS_SDK_ORT_WASM_THREADED_URL`
+- `VIDEO_EFFECTS_SDK_ORT_WASM_SIMD_THREADED_URL`
+
+If these are not set, the integration uses the built-in defaults from Cloudflare Meet and the SDK package.
+
+### UI features
+
+The Video Effects SDK integration is exposed through Settings with these controls:
+
+- background blur with a `0..1` strength slider
+- virtual background upload/select/delete
+- beautification with a `0..1` strength slider
+- low-light correction with a `0..1` strength slider
+
+Virtual background assets are stored locally in the browser.
+
+### Runtime behavior
+
+The camera effects lifecycle maps to the Video Effects SDK like this:
+
+- enable a video effect: pass the current camera stream into `sdk.useStream(...)`, wait for `onReady`, then call `sdk.run()`
+- disable all video effects: call `sdk.stop()`
+- enable again without changing the stream: call `sdk.run()` again
+- effect sliders and background changes are applied to the singleton SDK instance without recreating it
+
+### Verification
+
+Open the browser console and look for `[VideoEffectsSDK]` logs. The integration logs:
 
 - the payload sent to `sdk.config(...)`
 - every `sdk.useStream(...)`

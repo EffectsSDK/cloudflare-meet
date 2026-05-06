@@ -21,6 +21,7 @@ import type { TrackObject } from '~/utils/callsTypes'
 import { useE2EE } from '~/utils/e2ee'
 import { getIceServers } from '~/utils/getIceServers.server'
 import { mode } from '~/utils/mode'
+import { normalizeVideoEffectsSdkConfig } from '~/utils/videoEffectsSdk'
 
 function numberOrUndefined(value: unknown): number | undefined {
 	const num = Number(value)
@@ -48,6 +49,14 @@ export const loader = async ({ context }: LoaderFunctionArgs) => {
 			AUDIO_EFFECTS_SDK_URL,
 			AUDIO_EFFECTS_SDK_ORT_WASM_URL,
 			AUDIO_EFFECTS_SDK_ORT_WASM_SIMD_URL,
+			VIDEO_EFFECTS_SDK_CUSTOMER_ID,
+			VIDEO_EFFECTS_SDK_PRESET,
+			VIDEO_EFFECTS_SDK_PROVIDER,
+			VIDEO_EFFECTS_SDK_URL,
+			VIDEO_EFFECTS_SDK_ORT_WASM_URL,
+			VIDEO_EFFECTS_SDK_ORT_WASM_SIMD_URL,
+			VIDEO_EFFECTS_SDK_ORT_WASM_THREADED_URL,
+			VIDEO_EFFECTS_SDK_ORT_WASM_SIMD_THREADED_URL,
 		},
 	} = context
 
@@ -72,6 +81,16 @@ export const loader = async ({ context }: LoaderFunctionArgs) => {
 			sdkUrl: AUDIO_EFFECTS_SDK_URL,
 			ortWasmPath: AUDIO_EFFECTS_SDK_ORT_WASM_URL,
 			ortWasmSimdPath: AUDIO_EFFECTS_SDK_ORT_WASM_SIMD_URL,
+		}),
+		videoEffectsConfig: normalizeVideoEffectsSdkConfig({
+			customerId: VIDEO_EFFECTS_SDK_CUSTOMER_ID,
+			preset: VIDEO_EFFECTS_SDK_PRESET,
+			provider: VIDEO_EFFECTS_SDK_PROVIDER,
+			sdkUrl: VIDEO_EFFECTS_SDK_URL,
+			ortWasmPath: VIDEO_EFFECTS_SDK_ORT_WASM_URL,
+			ortWasmSimdPath: VIDEO_EFFECTS_SDK_ORT_WASM_SIMD_URL,
+			ortWasmThreadedPath: VIDEO_EFFECTS_SDK_ORT_WASM_THREADED_URL,
+			ortWasmSimdThreadedPath: VIDEO_EFFECTS_SDK_ORT_WASM_SIMD_THREADED_URL,
 		}),
 		simulcastEnabled: EXPERIMENTAL_SIMULCAST_ENABLED === 'true',
 		e2eeEnabled: context.env.E2EE_ENABLED === 'true',
@@ -112,9 +131,14 @@ function RoomPreparation(props: {
 	cameraDeviceId?: string
 }) {
 	const { roomName } = useParams()
-	const { audioEffectsConfig } = useLoaderData<typeof loader>()
+	const { audioEffectsConfig, videoEffectsConfig } =
+		useLoaderData<typeof loader>()
 	invariant(roomName)
-	const userMedia = useUserMedia({ ...props, audioEffectsConfig })
+	const userMedia = useUserMedia({
+		...props,
+		audioEffectsConfig,
+		videoEffectsConfig,
+	})
 	const room = useRoom({ roomName, userMedia })
 
 	return room.roomState.meetingId ? (
